@@ -2,7 +2,6 @@ package com.skateboard.audiorecorddemo
 
 import android.media.MediaCodec
 import android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM
-import android.media.MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -69,7 +68,6 @@ class AudioEncoder
             inBuffer.put(data)
             if (!isEncoding)
             {
-                System.out.println("end of stream")
                 audioCodec.queueInputBuffer(inIndex, 0, 0, System.nanoTime() / 1000, BUFFER_FLAG_END_OF_STREAM)
 
             } else

@@ -72,7 +72,7 @@ class AudioRecorder
     private val recordRunnable = Runnable {
 
 
-        val data = ByteArray(1024)
+        val data = ByteArray(minSize)
         audioRecord?.startRecording()
         while (isRecording)
         {
