@@ -7,7 +7,6 @@ import android.media.MediaRecorder
 import android.os.Environment
 import java.io.File
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class AudioRecorder
 {
@@ -65,21 +64,23 @@ class AudioRecorder
     private fun prepareAudioEncoder(sampleRate: Int, outputFormat: Int)
     {
         audioEncoder = AudioEncoder()
-        audioEncoder.prepare(50000, sampleRate, outputFile, outputFormat)
+        audioEncoder.prepare(128000, sampleRate, outputFile, outputFormat)
 
     }
 
 
     private val recordRunnable = Runnable {
 
-        val data = ByteArray(minSize)
+
+        val data = ByteArray(1024)
         audioRecord?.startRecording()
         while (isRecording)
         {
             audioRecord?.read(data, 0, data.size)
-            audioEncoder.drainEncoder(data, false)
+            audioEncoder.start()
+            audioEncoder.drainEncoder(data)
         }
-        audioEncoder.drainEncoder(data, true)
+        audioEncoder.release()
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
@@ -88,20 +89,17 @@ class AudioRecorder
 
     fun startRecord()
     {
-        isRecording = true
-        executorService.execute(recordRunnable)
+        if(!isRecording)
+        {
+            isRecording = true
+            executorService.execute(recordRunnable)
+            executorService.shutdownNow()
+        }
     }
 
     fun stopRecord()
     {
         isRecording = false
-//        executorService.awaitTermination(30, TimeUnit.MILLISECONDS)
-    }
-
-
-    fun release()
-    {
-        executorService.shutdownNow()
     }
 
 }

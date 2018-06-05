@@ -2,11 +2,14 @@ package com.skateboard.audiorecorddemo
 
 import android.media.MediaCodec
 import android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM
+import android.media.MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED
+import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.os.Build
 import java.io.File
 import java.nio.ByteBuffer
+
 
 class AudioEncoder
 {
@@ -16,9 +19,10 @@ class AudioEncoder
 
     private lateinit var mediaMuxer: MediaMuxer
 
-    private var isMuxer=false
+    private var trackIndex = -1
 
-    private var trackIndex=-1
+    private var isEncoding = false
+
 
     fun prepare(bitrate: Int, sampleRate: Int, outputFile: File, format: Int)
     {
@@ -30,6 +34,7 @@ class AudioEncoder
     {
         bufferInfo = MediaCodec.BufferInfo()
         val mediaFormat = MediaFormat()
+        mediaFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
         mediaFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC)
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
         mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2)
@@ -43,38 +48,52 @@ class AudioEncoder
         mediaMuxer = MediaMuxer(file.absolutePath, format)
     }
 
-
-    fun drainEncoder(data: ByteArray, isEnd: Boolean)
+    fun start()
     {
-        audioCodec.start()
-        while (true)
+        if (!isEncoding)
         {
-            val inIndex = audioCodec.dequeueInputBuffer(0)
-            if (inIndex > 0)
+            isEncoding = true
+            audioCodec.start()
+        }
+    }
+
+    fun drainEncoder(data: ByteArray)
+    {
+
+
+        val inIndex = audioCodec.dequeueInputBuffer(0)
+        if (inIndex > 0)
+        {
+            val inBuffer = getInBuffer(inIndex)
+            inBuffer.clear()
+            inBuffer.put(data)
+            if (!isEncoding)
             {
-                val inBuffer = getInBuffer(inIndex)
-                inBuffer.clear()
-                inBuffer.put(data)
-                if (isEnd)
-                {
-                    audioCodec.queueInputBuffer(inIndex, 0, data.size, System.nanoTime()/1000, BUFFER_FLAG_END_OF_STREAM)
+                System.out.println("end of stream")
+                audioCodec.queueInputBuffer(inIndex, 0, 0, System.nanoTime() / 1000, BUFFER_FLAG_END_OF_STREAM)
 
-                } else
-                {
-                    audioCodec.queueInputBuffer(inIndex, 0, data.size, System.nanoTime()/1000, 0)
-                }
-
+            } else
+            {
+                audioCodec.queueInputBuffer(inIndex, 0, data.size, System.nanoTime() / 1000, 0)
             }
 
+        }
+
+        do
+        {
             val outIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 0)
             when
             {
                 outIndex > 0 ->
                 {
-                    val outBuffer = getOutBuffer(outIndex)
-                    outBuffer.position(bufferInfo.offset)
-                    outBuffer.limit(bufferInfo.offset + bufferInfo.size)
-                    mediaMuxer.writeSampleData(trackIndex, outBuffer, bufferInfo)
+
+                    if (bufferInfo.size != 0)
+                    {
+                        val outBuffer = getOutBuffer(outIndex)
+                        outBuffer.position(bufferInfo.offset)
+                        outBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                        mediaMuxer.writeSampleData(trackIndex, outBuffer, bufferInfo)
+                    }
                     audioCodec.releaseOutputBuffer(outIndex, false)
                 }
                 outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED ->
@@ -82,15 +101,15 @@ class AudioEncoder
                     trackIndex = mediaMuxer.addTrack(audioCodec.outputFormat)
                     mediaMuxer.start()
                 }
-            }
 
-            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
-            {
-                break
             }
+        } while (outIndex > 0)
 
+        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
+        {
+
+            isEncoding = false
         }
-
 
     }
 

@@ -2,7 +2,9 @@ package com.skateboard.audiorecorddemo
 
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Environment
 import kotlinx.android.synthetic.main.activity_main.*
+import java.io.File
 
 class MainActivity : AppCompatActivity()
 {
@@ -11,10 +13,14 @@ class MainActivity : AppCompatActivity()
 
     private val audioRecorder = AudioRecorder()
 
+    private val audioPlayer=AudioPlayer()
+
     override fun onCreate(savedInstanceState: Bundle?)
     {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        audioPlayer.prepare()
 
         audioRecorder.prepare(null)
 
@@ -32,12 +38,11 @@ class MainActivity : AppCompatActivity()
 
         }
 
+        playBtn.setOnClickListener {
+
+            audioPlayer.play(File(Environment.getExternalStorageDirectory().absolutePath+File.separator+"recordDemo","audio.pcm"))
+        }
+
     }
 
-
-    override fun onDestroy()
-    {
-        super.onDestroy()
-        audioRecorder.release()
-    }
 }
