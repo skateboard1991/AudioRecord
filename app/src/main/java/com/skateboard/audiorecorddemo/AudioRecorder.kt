@@ -93,13 +93,17 @@ class AudioRecorder
         {
             isRecording = true
             executorService.execute(recordRunnable)
-            executorService.shutdownNow()
         }
     }
 
     fun stopRecord()
     {
         isRecording = false
+    }
+
+    fun destroy()
+    {
+        executorService.shutdown()
     }
 
 }

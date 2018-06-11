@@ -59,7 +59,6 @@ class AudioEncoder
     fun drainEncoder(data: ByteArray)
     {
 
-
         val inIndex = audioCodec.dequeueInputBuffer(0)
         if (inIndex > 0)
         {

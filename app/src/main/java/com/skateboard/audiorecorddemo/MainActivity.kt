@@ -29,20 +29,27 @@ class MainActivity : AppCompatActivity()
             isRecording = if (isRecording)
             {
                 audioRecorder.stopRecord()
+                recordBtn.text="record"
                 false
             } else
             {
                 audioRecorder.startRecord()
+                recordBtn.text="stop"
                 true
             }
 
         }
 
-        playBtn.setOnClickListener {
-
-            audioPlayer.play(File(Environment.getExternalStorageDirectory().absolutePath+File.separator+"recordDemo","audio.pcm"))
-        }
+//        playBtn.setOnClickListener {
+//
+//            audioPlayer.play(File(Environment.getExternalStorageDirectory().absolutePath+File.separator+"recordDemo","audio.pcm"))
+//        }
 
     }
 
+    override fun onDestroy()
+    {
+        super.onDestroy()
+        audioRecorder.destroy()
+    }
 }
