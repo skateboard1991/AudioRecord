@@ -22,8 +22,6 @@ class MainActivity : AppCompatActivity()
 
         audioPlayer.prepare()
 
-        audioRecorder.prepare(null)
-
         recordBtn.setOnClickListener {
 
             isRecording = if (isRecording)
@@ -33,6 +31,7 @@ class MainActivity : AppCompatActivity()
                 false
             } else
             {
+                audioRecorder.prepare(null)
                 audioRecorder.startRecord()
                 recordBtn.text="stop"
                 true
