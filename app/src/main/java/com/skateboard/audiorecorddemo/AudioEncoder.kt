@@ -67,13 +67,12 @@ class AudioEncoder
         {
             if (!isEOS)
             {
-                val inIndex = audioCodec.dequeueInputBuffer(0)
+                val inIndex = audioCodec.dequeueInputBuffer(-1)
                 if (inIndex >= 0)
                 {
                     if (data == null)
                     {
                         isEOS = true
-                        println("AudioEncoder end of stream")
                         audioCodec.queueInputBuffer(inIndex, 0, 0, 0, BUFFER_FLAG_END_OF_STREAM)
 
                     }
@@ -82,7 +81,7 @@ class AudioEncoder
                         val inBuffer = getInBuffer(inIndex)
                         inBuffer.clear()
                         inBuffer.put(data)
-                        audioCodec.queueInputBuffer(inIndex, 0, data.size, 0, 0)
+                        audioCodec.queueInputBuffer(inIndex, 0, data.size, System.nanoTime() / 1000, 0)
                     }
 
                 }
@@ -94,39 +93,37 @@ class AudioEncoder
             }
 
 
-            val outIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 0)
-            when
+            var outIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 0)
+            while (outIndex >= 0)
             {
-                outIndex >= 0 ->
-                {
-                    if (lastPreTime == -1L)
-                    {
-                        lastPreTime = bufferInfo.presentationTimeUs
-                    }
-                    else if (lastPreTime < bufferInfo.presentationTimeUs)
-                    {
-                        lastPreTime = bufferInfo.presentationTimeUs
-                    }
-                    if (bufferInfo.size != 0)
-                    {
-                        val outBuffer = getOutBuffer(outIndex)
-                        outBuffer.position(bufferInfo.offset)
-                        outBuffer.limit(bufferInfo.offset + bufferInfo.size)
-                        mediaMuxer.writeSampleData(trackIndex, outBuffer, bufferInfo)
-                    }
-                    audioCodec.releaseOutputBuffer(outIndex, false)
-                }
-                outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED ->
-                {
-                    trackIndex = mediaMuxer.addTrack(audioCodec.outputFormat)
-                    mediaMuxer.start()
-                }
 
+                if (lastPreTime == -1L)
+                {
+                    lastPreTime = bufferInfo.presentationTimeUs
+                }
+                else if (lastPreTime < bufferInfo.presentationTimeUs)
+                {
+                    lastPreTime = bufferInfo.presentationTimeUs
+                }
+                if (bufferInfo.size != 0 && lastPreTime <= bufferInfo.presentationTimeUs)
+                {
+                    val outBuffer = getOutBuffer(outIndex)
+                    outBuffer.position(bufferInfo.offset)
+                    outBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                    mediaMuxer.writeSampleData(trackIndex, outBuffer, bufferInfo)
+                }
+                audioCodec.releaseOutputBuffer(outIndex, false)
+                outIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 0)
             }
 
+            if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED)
+            {
+                trackIndex = mediaMuxer.addTrack(audioCodec.outputFormat)
+                mediaMuxer.start()
+            }
             if (outIndex == MediaCodec.INFO_TRY_AGAIN_LATER)
             {
-                if(!isEOS)
+                if (!isEOS)
                 {
                     break
                 }
@@ -139,6 +136,8 @@ class AudioEncoder
 
                 break
             }
+
+
         }
 
     }
