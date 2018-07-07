@@ -22,6 +22,8 @@ class AudioEncoder
 
     private var isEncoding = false
 
+    private var lastPreTime = -1L
+
 
     fun prepare(bitrate: Int, sampleRate: Int, outputFile: File, format: Int)
     {
@@ -38,6 +40,7 @@ class AudioEncoder
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
         mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2)
         mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, sampleRate)
+        mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 9000)
         audioCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
         audioCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
     }
@@ -56,34 +59,54 @@ class AudioEncoder
         }
     }
 
-    fun drainEncoder(data: ByteArray)
+    fun drainEncoder(data: ByteArray?)
     {
 
-        val inIndex = audioCodec.dequeueInputBuffer(0)
-        if (inIndex > 0)
+        var isEOS = false
+        while (true)
         {
-            val inBuffer = getInBuffer(inIndex)
-            inBuffer.clear()
-            inBuffer.put(data)
-            if (!isEncoding)
+            if (!isEOS)
             {
-                audioCodec.queueInputBuffer(inIndex, 0, 0, System.nanoTime() / 1000, BUFFER_FLAG_END_OF_STREAM)
+                val inIndex = audioCodec.dequeueInputBuffer(0)
+                if (inIndex >= 0)
+                {
+                    if (data == null)
+                    {
+                        isEOS = true
+                        println("AudioEncoder end of stream")
+                        audioCodec.queueInputBuffer(inIndex, 0, 0, 0, BUFFER_FLAG_END_OF_STREAM)
 
-            } else
-            {
-                audioCodec.queueInputBuffer(inIndex, 0, data.size, System.nanoTime() / 1000, 0)
+                    }
+                    else
+                    {
+                        val inBuffer = getInBuffer(inIndex)
+                        inBuffer.clear()
+                        inBuffer.put(data)
+                        audioCodec.queueInputBuffer(inIndex, 0, data.size, 0, 0)
+                    }
+
+                }
+                else if (inIndex == MediaCodec.INFO_TRY_AGAIN_LATER)
+                {
+
+
+                }
             }
 
-        }
 
-        do
-        {
             val outIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 0)
             when
             {
-                outIndex > 0 ->
+                outIndex >= 0 ->
                 {
-
+                    if (lastPreTime == -1L)
+                    {
+                        lastPreTime = bufferInfo.presentationTimeUs
+                    }
+                    else if (lastPreTime < bufferInfo.presentationTimeUs)
+                    {
+                        lastPreTime = bufferInfo.presentationTimeUs
+                    }
                     if (bufferInfo.size != 0)
                     {
                         val outBuffer = getOutBuffer(outIndex)
@@ -100,12 +123,22 @@ class AudioEncoder
                 }
 
             }
-        } while (outIndex > 0)
 
-        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
-        {
+            if (outIndex == MediaCodec.INFO_TRY_AGAIN_LATER)
+            {
+                if(!isEOS)
+                {
+                    break
+                }
+            }
 
-            isEncoding = false
+            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
+            {
+
+                isEncoding = false
+
+                break
+            }
         }
 
     }
@@ -124,7 +157,8 @@ class AudioEncoder
         return if (Build.VERSION.SDK_INT >= 21)
         {
             audioCodec.getInputBuffer(index)
-        } else
+        }
+        else
         {
             audioCodec.inputBuffers[index]
         }
@@ -135,7 +169,8 @@ class AudioEncoder
         return if (Build.VERSION.SDK_INT >= 21)
         {
             audioCodec.getOutputBuffer(index)
-        } else
+        }
+        else
         {
             audioCodec.outputBuffers[index]
         }

@@ -80,6 +80,7 @@ class AudioRecorder
             audioEncoder.start()
             audioEncoder.drainEncoder(data)
         }
+        audioEncoder.drainEncoder(null)
         audioEncoder.release()
         audioRecord?.stop()
         audioRecord?.release()
