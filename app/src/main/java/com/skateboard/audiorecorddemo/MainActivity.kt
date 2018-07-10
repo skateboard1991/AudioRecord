@@ -1,5 +1,6 @@
 package com.skateboard.audiorecorddemo
 
+import android.media.MediaMuxer
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
@@ -15,6 +16,10 @@ class MainActivity : AppCompatActivity()
 
     private val audioPlayer=AudioPlayer()
 
+    private val DIR = "recordDemo"
+
+    private val FILE_NAME = "audio.mp4"
+
     override fun onCreate(savedInstanceState: Bundle?)
     {
         super.onCreate(savedInstanceState)
@@ -22,17 +27,22 @@ class MainActivity : AppCompatActivity()
 
         audioPlayer.prepare()
 
+        val mediaMuxer=MediaMuxer(generateFilePath(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+        val audioEncoderCore=AudioEncoderCore(mediaMuxer)
+
+        audioEncoderCore.prepare(128000)
+
         recordBtn.setOnClickListener {
 
             isRecording = if (isRecording)
             {
-                audioRecorder.stopRecord()
+                audioEncoderCore.release()
                 recordBtn.text="record"
                 false
             } else
             {
-                audioRecorder.prepare(null)
-                audioRecorder.startRecord()
+                audioEncoderCore.startRecord()
                 recordBtn.text="stop"
                 true
             }
@@ -44,6 +54,16 @@ class MainActivity : AppCompatActivity()
 //            audioPlayer.play(File(Environment.getExternalStorageDirectory().absolutePath+File.separator+"recordDemo","audio.pcm"))
 //        }
 
+    }
+
+    private fun generateFilePath():String
+    {
+        val dir = File(Environment.getExternalStorageDirectory().absolutePath, DIR)
+        if (!dir.exists())
+        {
+            dir.mkdir()
+        }
+        return File(dir, FILE_NAME).absolutePath
     }
 
     override fun onDestroy()
